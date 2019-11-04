@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment  # kibana属于无状态服务，适合用deployment部署
+metadata:
+  namespace: elastic
+  name: kibana
+  labels:
+    app: kibana
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      #tolerations:
+      #  - key: node-role.kubernetes.io/master
+      #    effect: NoSchedule
+      #nodeName: k8s-node01  # 指定pod调度到目标节点，不指定的话，k8s就自己分配啰
+      imagePullSecrets:
+        - name: test
+      containers:
+      - name: kibana
+        imagePullPolicy: IfNotPresent
+        image: test/kibana:7.3.2
+        livenessProbe:  # 探测服务，这里可能造成你起完pod服务后大概要过4-5分钟，pod才能真正ready，所以就慢慢等啰
+          httpGet:
+            path: /app/kibana
+            port: 5601
+            scheme: HTTP
+          initialDelaySeconds: 120
+          timeoutSeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /app/kibana
+            port: 5601
+            scheme: HTTP
+          initialDelaySeconds: 240
+          timeoutSeconds: 10
+          failureThreshold: 12
+        resources:
+            limits:
+              cpu: "1500m"
+              memory: "2048Mi"
+            requests:
+              cpu: "1000m"
+              memory: "1024Mi"
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+        env:
+          - name: ELASTICSEARCH_HOSTS  # ES地址，可以直接写外网地址，也可以写集群内部地址（通过服务名称加命名空间或者clusterIP+port）
+            value: http://localhost:port
+        ports:
+        - containerPort: 5601
+          name: kibana
+          protocol: TCP
+
+---
+
+apiVersion: v1
+kind: Service  # kibana服务发现
+metadata:
+  namespace: elastic
+  name: kibana
+  labels:
+    app: kibana
+spec:
+  type: NodePort
+  ports:
+  - port: 5601
+    name: kibana
+    nodePort: 32002
+  selector:
+    app: kibana
