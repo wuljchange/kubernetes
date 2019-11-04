@@ -1,0 +1,15 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: test-pod
+spec:
+  containers:
+  - name: test-pod
+    image: linuxhub/nginx:1.15.5
+    volumeMounts:
+      - name: nfs-pvc
+        mountPath: "/usr/share/nginx/html"
+  volumes:
+    - name: nfs-pvc
+      persistentVolumeClaim:
+        claimName: test-claim
