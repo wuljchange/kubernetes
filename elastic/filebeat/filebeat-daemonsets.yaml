@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-systemlog-config
+  namespace: elastic
+
+data:
+  filebeat.yml: |-
+    filebeat.inputs:
+      - type: log
+        paths:
+          - /messages
+        fields:
+          name: system-log
+          type: module
+        fields_under_root: true
+        multiline:
+          pattern: '^\s+'
+          negate: false
+          match: after
+
+    output.logstash:
+      hosts: ['logstash.elastic']  # 这里就是通过service名称加命名空间去发现logstash服务，请不要带上端口，默认已经带了端口
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: system-logs
+  namespace: elastic
+spec:
+  selector:
+    matchLabels:
+      project: k8s
+      app: filebeat
+  template:
+    metadata:
+      labels:
+        project: k8s
+        app: filebeat
+    spec:
+      imagePullSecrets:
+      - name: test
+      containers:
+      - name: filebeat
+        image: test/filebeat:7.3.2
+        imagePullPolicy: IfNotPresent
+        args: [
+          "-c", "/etc/filebeat.yml",
+          "-e",
+        ]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 500m
+            memory: 500Mi
+        securityContext:
+          runAsUser: 0
+          # privileged: true
+        volumeMounts:
+        - name: filebeat-config
+          mountPath: /etc/filebeat.yml
+          subPath: filebeat.yml
+        - name: system-log
+          mountPath: /messages
+      volumes:
+      - name: system-log
+        hostPath:
+          path: /var/log/messages
+          type: File
+      - name: filebeat-config
+        configMap:
+          name: filebeat-systemlog-config
