@@ -1,0 +1,141 @@
+# 每个节点均承担Master、node、Ingest角色
+---
+apiVersion: apps/v1
+kind: StatefulSet  # ES属于有状态服务
+metadata:
+  name: es-cluster
+  namespace: elastic  # 数据收集都放在该命名空间下
+spec:
+  serviceName: elasticsearch-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: elasticsearch  # 匹配标签
+  template:
+    metadata:
+      labels:
+        app: elasticsearch  # 给服务贴上标签
+    spec:
+      affinity:  # pod亲和性，让pod均匀调度在各个节点之间
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - elasticsearch
+              topologyKey: "kubernetes.io/hostname"
+      imagePullSecrets:  # 私有仓库拉取镜像的secret，必须和服务在同一个命名空间下
+      - name: test
+      containers:  # 容器初始化
+      - name: elasticsearch
+        image: test/elasticsearch:7.3.2
+        imagePullPolicy: IfNotPresent  # 有3种，Never,Always,IfNotPresent 分别表示只从本地拉取，直接远程拉取，先本地后远程拉取
+        livenessProbe:  # 探测服务
+          tcpSocket:
+            port: 9200
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          failureThreshold: 12
+        readinessProbe:
+          tcpSocket:
+            port: 9200
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          failureThreshold: 12
+        resources:  # 服务分配的资源限制
+            limits:
+              cpu: "1000m"
+              memory: "1500Mi"
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+        ports:  # 容器开放的端口
+        - containerPort: 9200
+          name: es-http
+          protocol: TCP
+        - containerPort: 9300
+          name: cluster-port
+          protocol: TCP
+        volumeMounts:  # 容器内部数据挂载的目录
+          - mountPath: /usr/share/elasticsearch/data
+            name: data-elasticsearch
+        env:  # 服务需要设置的环境变量
+          - name: REQUESTS_MEMORY
+            valueFrom:
+              resourceFieldRef:
+                resource: requests.memory
+                divisor: 1Mi
+          - name: node.name
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: cluster.name
+            value: es-cluster
+          - name: http.cors.enabled
+            value: "true"
+          - name: http.cors.allow-origin
+            value: "*"
+          - name: ES_JAVA_OPTS
+            value: "-Xms$(REQUESTS_MEMORY)m -Xmx$(REQUESTS_MEMORY)m"
+          - name: cluster.initial_master_nodes
+            value: "es-cluster-0,es-cluster-1,es-cluster-2"
+          - name: discovery.seed_hosts
+            value: "es-cluster-0.elasticsearch-headless,es-cluster-1.elasticsearch-headless,es-cluster-2.elasticsearch-headless"
+      initContainers:  # 初始化容器一般用于开启服务之前需要先执行的某些必要步骤
+      - name: vm-max-map
+        image: hub.kce.ksyun.com/vbuqa/busybox:latest  # busybox镜像，经常用于测试
+        imagePullPolicy: IfNotPresent
+        command: ["sysctl", "-w", "vm.max_map_count=262144"]
+        securityContext:  # 获取root权限，一般在容器内执行某些命令需要
+          privileged: true
+      - name: fd-ulimit
+        image: test/busybox:latest
+        imagePullPolicy: IfNotPresent
+        command: ["sh", "-c", "ulimit -n 65535"]
+        securityContext:
+          privileged: true
+  volumeClaimTemplates:  # 持久化数据到sc
+  - metadata:
+      name: data-elasticsearch
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "managed-nfs-storage-node02"  # 提前搭建好的nfs服务，可以动态创建pv
+      resources:
+        requests:
+          storage: 20Gi
+
+---
+kind: Service  # 提供外网访问服务方式
+apiVersion: v1
+metadata:
+  name: elasticsearch
+  namespace: elastic
+  labels:
+    app: elasticsearch
+spec:
+  type: NodePort
+  selector:
+    app: elasticsearch
+  ports:
+    - port: 9200
+      name: es-http
+      nodePort: 32001
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-headless
+  namespace: elastic
+  labels:
+    app: elasticsearch
+spec:
+  ports:
+  - name: elasticsearch
+    port: 9200
+  selector:
+    app: elasticsearch
+  clusterIP: None
