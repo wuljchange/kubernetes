@@ -1,2 +1,2 @@
 # kubernetes
-kubernetes study share
+kubernetes study share.
