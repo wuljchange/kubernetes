@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap  # 定义logstash入数据和出数据的规则
+metadata:
+  name: logstash-config
+  namespace: elastic
+
+data:
+  logstash.conf: |-
+    input {
+      kafka {
+        bootstrap_servers => ["kafka集群地址，多个用英文逗号隔开"]
+        group_id => "logstash-kafka"
+        auto_offset_reset => "earliest"
+        consumer_threads => "12"
+        decorate_events => "false"
+        topics => ["kafka topic"]
+        codec => json
+      }
+    }
+
+    filter {
+      date {
+        match => [ "startDate", "UNIX_MS" ]
+      }
+      ruby { 
+        code => "event.set('timestamp', event.get('@timestamp').time.localtime + 8*60*60)"
+      }
+      ruby {
+        code => "event.set('index_date', event.get('timestamp').time.localtime.strftime('%Y.%m.%d.%H'))"
+      }
+      mutate {
+        remove_field => ["timestamp"]
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["es集群地址"]
+        index => "test-%{index_date}"
+      }
+    }

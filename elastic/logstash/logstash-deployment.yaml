@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: elastic
+  name: logstash
+  labels:
+    app: logstash
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      imagePullSecrets:
+      - name: test
+      containers:
+      - name: logstash
+        image: test/logstash:7.3.2
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          tcpSocket:
+            port: 9600
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          tcpSocket:
+            port: 9600
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 10
+        resources:
+            limits:
+              cpu: "1500m"
+              memory: "2048Mi"
+            requests:
+              cpu: "1000m"
+              memory: "1024Mi"
+        env:
+          - name: REQUESTS_MEMORY
+            valueFrom:
+              resourceFieldRef:
+                resource: requests.memory
+                divisor: 1Mi
+          - name: LS_JAVA_OPTS
+            value: "-Xms$(REQUESTS_MEMORY)m -Xmx$(REQUESTS_MEMORY)m"
+        ports:
+        - containerPort: 9092
+          name: kafka
+          protocol: TCP
+        - containerPort: 9600
+          name: logstash
+          protocol: TCP
+        volumeMounts:
+          - mountPath: /usr/share/logstash/pipeline
+            name: logstash-config
+      volumes:
+        - name: logstash-config
+          configMap:
+            name: logstash-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: elastic
+  name: logstash
+  labels:
+    app: logstash
+spec:
+  type: NodePort
+  ports:
+  - port: 9092
+    targetPort: 9092
+    nodePort: 32003
+    name: kafka
+  - port: 9600
+    targetPort: 9600
+    nodePort: 32004
+    name: logstash
+  selector:
+    app: logstash

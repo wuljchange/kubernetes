@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: elastic
+  name: logstash
+  labels:
+    app: logstash
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      imagePullSecrets:
+      - name: test
+      containers:
+      - name: logstash
+        image: test/logstash:7.3.2
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          tcpSocket:
+            port: 9600
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          tcpSocket:
+            port: 9600
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 10
+        resources:
+            limits:
+              cpu: "3000m"
+              memory: "3Gi"
+            requests:
+              cpu: "2000m"
+              memory: "2Gi"
+        env:
+          - name: REQUESTS_MEMORY
+            valueFrom:
+              resourceFieldRef:
+                resource: requests.memory
+                divisor: 1Mi
+          - name: LS_JAVA_OPTS
+            value: "-Xms$(REQUESTS_MEMORY)m -Xmx$(REQUESTS_MEMORY)m"
+        ports:
+        - containerPort: 5044
+          name: filebeat
+          protocol: TCP
+        - containerPort: 9600
+          name: logstash
+          protocol: TCP
+        volumeMounts:
+          - mountPath: /usr/share/logstash/pipeline
+            name: logstash-config
+      volumes:
+        - name: logstash-config
+          configMap:
+            name: logstash-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: elastic
+  name: logstash
+  labels:
+    app: logstash
+spec:
+  type: NodePort
+  ports:
+  - port: 5044
+    nodePort: 32003
+    name: filebeat
+  - port: 9600
+    nodePort: 32004
+    name: logstash
+  selector:
+    app: logstash

@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap  # 定义logstash入数据和出数据的规则
+metadata:
+  name: logstash-config
+  namespace: elastic
+
+data:
+  logstash.conf: |-
+    input {
+      beats {
+         port => 5044
+      }
+    }
+
+    filter {
+
+        grok {
+
+            match => ["message", "%{TIMESTAMP_ISO8601:logdate}"]
+
+        }
+
+        date {
+
+            match => ["logdate", "yyyy-MM-dd HH:mm:ss,SSS"]
+
+            target => "@timestamp"
+
+        }
+
+        mutate {
+
+            remove_tag => ["logdate"]
+
+        }
+    }
+
+    output {
+        if [name] == "system-log" {
+            if [type] == "module" {
+               elasticsearch {
+                  hosts => ["es集群地址"]
+                  index => "system-log-%{+YYYY.MM.dd}"
+               }
+            }
+         }
+        stdout { codec => rubydebug }
+    }
