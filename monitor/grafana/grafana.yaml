@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana
+  namespace: kube-system
+spec:
+  serviceName: "grafana"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      imagePullSecrets:
+      - name: test
+      containers:
+      - name: grafana
+        image: grafana:latest
+        livenessProbe:
+          httpGet:
+            path: /login
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 10
+        ports:
+          - name: grafana
+            containerPort: 3000
+            protocol: TCP
+        resources:
+          limits:
+            cpu: 600m
+            memory: 512Mi
+          requests:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+          - name: grafana-data
+            mountPath: /var/lib/grafana
+            subPath: grafana
+  volumeClaimTemplates:
+  - metadata:
+      name: grafana-data
+    spec:
+      storageClassName: managed-nfs-storage-master03
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: "1Gi"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: kube-system
+spec:
+  type: NodePort
+  ports:
+  - port : 80
+    name: grafana
+    targetPort: 3000
+    nodePort: 32009
+  selector:
+    app: grafana

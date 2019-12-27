@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: kube-system
+data:
+  collector.rules: |
+    groups:
+    - name: collector.rules
+      rules:
+
+      - alert: 采集器凉了
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} 采集器凉了撒"
+          description: " {{ $labels.instance }} 采集器凉了有一分钟了撒"
+  node.rules: |
+    groups:
+    - name: memeory_rules
+      rules:
+      - alert: 内存炸了
+        expr: (node_memory_MemTotal_bytes - node_memory_MemFree_bytes - node_memory_Buffers_bytes - node_memory_Cached_bytes) / (node_memory_MemTotal_bytes )* 100 > 80
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} 内存炸了"
+          description: "{{ $labels.instance }} 内存炸了，当前使用率为 {{ $value }}"
+
+      - alert: CPU炸了
+        expr: 100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance) * 100) > 80
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Instance {{ $labels.instance }} CPU炸了"
+          description: "{{ $labels.instance }}CPU炸了 当前使用率为 {{ $value }}"
+
+      - alert: 磁盘剩余空间过低
+        expr: 100 - (node_filesystem_free_bytes{fstype=~"ext4|xfs"} / node_filesystem_size_bytes{fstype=~"ext4|xfs"} * 100) > 80
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Instance {{ $labels.instance }} : {{ $labels.mountpoint }} 分区剩余空间较小"
+          description: "{{ $labels.instance }}: {{ $labels.mountpoint }} 分区剩余空间较小，当前使用率为 {{ $value }}"

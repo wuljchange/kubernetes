@@ -1,0 +1,54 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: influxdb
+  namespace: kube-system
+  labels:
+    k8s-app: influxdb
+    version: v4
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+spec:
+  serviceName: "influxdb"
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: influxdb
+      version: v4
+  template:
+    metadata:
+      labels:
+        k8s-app: influxdb
+        version: v4
+    spec:
+      imagePullSecrets:  # 私有仓库拉取镜像的secret，必须和服务在同一个命名空间下
+      - name: test
+      priorityClassName: system-cluster-critical
+      containers:
+        - name: influxdb
+          image: influxdb:latest
+          resources:
+            limits:
+              cpu: 100m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 512Mi
+          ports:
+            - name: http
+              containerPort: 8083
+            - name: api
+              containerPort: 8086
+          volumeMounts:
+          - name: influxdb-data
+            mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: influxdb-data
+    spec:
+      storageClassName: managed-nfs-storage-master03
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: "20Gi"
