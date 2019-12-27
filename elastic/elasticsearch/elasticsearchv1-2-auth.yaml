@@ -1,4 +1,4 @@
-# 3 master + 10 data
+# 3 master + 6 data
 ---
 # master 节点
 apiVersion: apps/v1
@@ -22,21 +22,11 @@ spec:
         app: elasticsearch  # 给服务贴上标签
         role: master
     spec:
-      affinity:  # pod亲和性，让pod均匀调度在各个节点之间
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: "role"
-                    operator: In
-                    values:
-                    - master
-              topologyKey: "kubernetes.io/hostname"
       imagePullSecrets:  # 私有仓库拉取镜像的secret，必须和服务在同一个命名空间下
       - name: test
       containers:  # 容器初始化
       - name: elasticsearch-master
-        image: test/elasticsearch:7.3.2
+        image: elasticsearch:7.3.3
         imagePullPolicy: IfNotPresent  # 有3种，Never,Always,IfNotPresent 分别表示只从本地拉取，直接远程拉取，先本地后远程拉取
         livenessProbe:  # 探测服务
           tcpSocket:
@@ -86,12 +76,20 @@ spec:
             value: "false"
           - name: node.ingest
             value: "false"
-          - name: node.ml
-            value: "false"
           - name: xpack.ml.enabled
             value: "true"
           - name: cluster.remote.connect
             value: "false"
+          - name: xpack.security.enabled
+            value: "true"
+          - name: xpack.security.transport.ssl.enabled
+            value: "true"
+          - name: xpack.security.transport.ssl.verification_mode
+            value: "certificate"
+          - name: xpack.security.transport.ssl.keystore.path
+            value: "/usr/share/elasticsearch/config/certs/elastic-certificates.p12"
+          - name: xpack.security.transport.ssl.truststore.path
+            value: "/usr/share/elasticsearch/config/certs/elastic-certificates.p12"
           - name: ES_JAVA_OPTS
             value: "-Xms$(REQUESTS_MEMORY)m -Xmx$(REQUESTS_MEMORY)m"
           - name: cluster.initial_master_nodes
@@ -100,13 +98,13 @@ spec:
             value: "es-cluster-master-0.elasticsearch-discovery-headless,es-cluster-master-1.elasticsearch-discovery-headless,es-cluster-master-2.elasticsearch-discovery-headless"
       initContainers:  # 初始化容器一般用于开启服务之前需要先执行的某些必要步骤
       - name: vm-max-map
-        image: test/busybox:latest  # busybox镜像，经常用于测试
+        image: busybox:latest  # busybox镜像，经常用于测试
         imagePullPolicy: IfNotPresent
         command: ["sysctl", "-w", "vm.max_map_count=262144"]
         securityContext:  # 获取root权限，一般在容器内执行某些命令需要
           privileged: true
       - name: fd-ulimit
-        image: test/busybox:latest
+        image: busybox:latest
         imagePullPolicy: IfNotPresent
         command: ["sh", "-c", "ulimit -n 65535"]
         securityContext:
@@ -138,7 +136,7 @@ spec:
       - name: test
       containers:  # 容器初始化
       - name: elasticsearch
-        image: test/elasticsearch:7.3.2
+        image: elasticsearch:7.3.3
         imagePullPolicy: IfNotPresent  # 有3种，Never,Always,IfNotPresent 分别表示只从本地拉取，直接远程拉取，先本地后远程拉取
         livenessProbe:  # 探测服务
           tcpSocket:
@@ -191,10 +189,16 @@ spec:
             value: "true"
           - name: node.ingest
             value: "true"
-          - name: node.ml
-            value: "false"
-          - name: cluster.remote.connect
-            value: "false"
+          - name: xpack.security.enabled
+            value: "true"
+          - name: xpack.security.transport.ssl.enabled
+            value: "true"
+          - name: xpack.security.transport.ssl.verification_mode
+            value: "certificate"
+          - name: xpack.security.transport.ssl.keystore.path
+            value: "/usr/share/elasticsearch/config/certs/elastic-certificates.p12"
+          - name: xpack.security.transport.ssl.truststore.path
+            value: "/usr/share/elasticsearch/config/certs/elastic-certificates.p12"
           - name: ES_JAVA_OPTS
             value: "-Xms$(REQUESTS_MEMORY)m -Xmx$(REQUESTS_MEMORY)m"
           - name: cluster.initial_master_nodes
@@ -203,13 +207,13 @@ spec:
             value: "es-cluster-master-0.elasticsearch-discovery-headless,es-cluster-master-1.elasticsearch-discovery-headless,es-cluster-master-2.elasticsearch-discovery-headless"
       initContainers:  # 初始化容器一般用于开启服务之前需要先执行的某些必要步骤
       - name: vm-max-map
-        image: test/busybox:latest  # busybox镜像，经常用于测试
+        image: busybox:latest  # busybox镜像，经常用于测试
         imagePullPolicy: IfNotPresent
         command: ["sysctl", "-w", "vm.max_map_count=262144"]
         securityContext:  # 获取root权限，一般在容器内执行某些命令需要
           privileged: true
       - name: fd-ulimit
-        image: test/busybox:latest
+        image: busybox:latest
         imagePullPolicy: IfNotPresent
         command: ["sh", "-c", "ulimit -n 65535"]
         securityContext:
@@ -219,7 +223,7 @@ spec:
       name: elasticsearch-data
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "managed-nfs-storage-master01"  # 提前搭建好的nfs服务，可以动态创建pv
+      storageClassName: "managed-nfs-storage-master03"  # 提前搭建好的nfs服务，可以动态创建pv
       resources:
         requests:
           storage: 5Gi

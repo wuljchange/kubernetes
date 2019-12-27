@@ -54,6 +54,10 @@ spec:
         env:
           - name: ELASTICSEARCH_HOSTS
             value: "es 地址"
+          - name: ELASTICSEARCH_USERNAME
+            value: "username"
+          - name: ELASTICSEARCH_PASSWORD
+            value: "password"
         ports:
         - containerPort: 5601
           name: kibana

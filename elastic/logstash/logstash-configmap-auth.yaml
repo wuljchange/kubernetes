@@ -8,7 +8,7 @@ data:
   logstash.conf: |-
     input {
       kafka {
-        bootstrap_servers => ["ip1:9092,ip2:9092"]
+        bootstrap_servers => ["ip:9092"]
         group_id => "logstash-kafka"
         auto_offset_reset => "latest"
         consumer_threads => "12"
@@ -36,6 +36,8 @@ data:
     output {
       elasticsearch {
         hosts => ["es 地址"]
+        user => "username"
+        password => "password"
         index => "test-%{index_date}"
       }
     }

@@ -39,7 +39,7 @@ data:
         if [name] == "system-log" {
             if [type] == "module" {
                elasticsearch {
-                  hosts => ["es集群地址"]
+                  hosts => ["es 地址"]
                   index => "system-log-%{+YYYY.MM.dd}"
                }
             }

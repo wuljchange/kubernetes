@@ -44,7 +44,7 @@ spec:
       - name: test
       containers:
       - name: filebeat
-        image: test/filebeat:7.3.2
+        image: filebeat:7.3.2
         imagePullPolicy: IfNotPresent
         args: [
           "-c", "/etc/filebeat.yml",

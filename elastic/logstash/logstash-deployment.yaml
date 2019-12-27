@@ -19,7 +19,7 @@ spec:
       - name: test
       containers:
       - name: logstash
-        image: test/logstash:7.3.2
+        image: logstash:7.3.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           tcpSocket:
@@ -72,15 +72,12 @@ metadata:
   labels:
     app: logstash
 spec:
-  type: NodePort
   ports:
   - port: 9092
     targetPort: 9092
-    nodePort: 32003
     name: kafka
   - port: 9600
     targetPort: 9600
-    nodePort: 32004
     name: logstash
   selector:
     app: logstash

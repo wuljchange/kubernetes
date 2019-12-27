@@ -30,7 +30,7 @@ spec:
       - name: test
       containers:  # 容器初始化
       - name: elasticsearch
-        image: test/elasticsearch:7.3.2
+        image: elasticsearch:7.3.2
         imagePullPolicy: IfNotPresent  # 有3种，Never,Always,IfNotPresent 分别表示只从本地拉取，直接远程拉取，先本地后远程拉取
         livenessProbe:  # 探测服务
           tcpSocket:
@@ -85,13 +85,13 @@ spec:
             value: "es-cluster-0.elasticsearch-headless,es-cluster-1.elasticsearch-headless,es-cluster-2.elasticsearch-headless"
       initContainers:  # 初始化容器一般用于开启服务之前需要先执行的某些必要步骤
       - name: vm-max-map
-        image: test/busybox:latest  # busybox镜像，经常用于测试
+        image: busybox:latest  # busybox镜像，经常用于测试
         imagePullPolicy: IfNotPresent
         command: ["sysctl", "-w", "vm.max_map_count=262144"]
         securityContext:  # 获取root权限，一般在容器内执行某些命令需要
           privileged: true
       - name: fd-ulimit
-        image: test/busybox:latest
+        image: busybox:latest
         imagePullPolicy: IfNotPresent
         command: ["sh", "-c", "ulimit -n 65535"]
         securityContext:
