@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-manager
+  namespace: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-manager
+  template:
+    metadata:
+      labels:
+        app: kafka-manager
+    spec:
+      imagePullSecrets:  # 私有仓库拉取镜像的secret，必须和服务在同一个命名空间下
+      - name: test
+      containers:
+      - name: kafka-manager
+        image: kafka-manager:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        env:
+        - name: ZK_HOSTS
+          value: zookeeper.kafka:2181
+        command:
+        - ./bin/kafka-manager
+        - -Dhttp.port=80

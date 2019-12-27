@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: kafka
+spec:
+  selector:
+    matchLabels:
+      app: zookeeper
+  serviceName: zookeeper-hs
+  replicas: 6
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: OrderedReady
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      imagePullSecrets:  # 私有仓库拉取镜像的secret，必须和服务在同一个命名空间下
+        - name: test
+      containers:
+      - name: zookeeper
+        imagePullPolicy: IfNotPresent
+        image: "zookeeper:kubernetes-zookeeper.0-3.4.10"
+        command:
+          - sh
+          - -c
+          - "start-zookeeper \
+                  --servers=6 \
+                  --data_dir=/var/lib/zookeeper/data \
+                  --data_log_dir=/var/lib/zookeeper/data/log \
+                  --conf_dir=/opt/zookeeper/conf \
+                  --client_port=2181 \
+                  --election_port=3888 \
+                  --server_port=2888 \
+                  --tick_time=2000 \
+                  --init_limit=10 \
+                  --sync_limit=5 \
+                  --heap=1024M \
+                  --max_client_cnxns=60 \
+                  --snap_retain_count=3 \
+                  --purge_interval=12 \
+                  --max_session_timeout=40000 \
+                  --min_session_timeout=4000 \
+                  --log_level=INFO"
+        ports:
+          - containerPort: 2181
+            name: client
+          - containerPort: 2888
+            name: server
+          - containerPort: 3888
+            name: leader-election
+        volumeMounts:
+        - name: zookeeper-data
+          mountPath: /var/lib/zookeeper
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
+  volumeClaimTemplates:
+  - metadata:
+      name: zookeeper-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: managed-nfs-storage-master03
+      resources:
+        requests:
+          storage: 10Gi
